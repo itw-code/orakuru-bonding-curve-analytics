@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.env
+.venv/
+env/
+
+# DuckDB / SQLite local databases
+*.duckdb
+*.db
+*.sqlite3
+
+# dbt artifacts
+target/
+dbt_packages/
+logs/
+
+# OS artifacts
+.DS_Store
+Thumbs.db
