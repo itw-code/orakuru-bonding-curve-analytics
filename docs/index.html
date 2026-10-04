@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Orakuru bonding-curve analytics — proof notes</title>
+  <meta name="description" content="Short public notes for the orakuru-bonding-curve-analytics proof repo. Figures are from the committed synthetic validation suite, not live chain stats.">
+  <style>
+    :root { color-scheme: light; }
+    body {
+      margin: 0;
+      font: 16px/1.5 "Segoe UI", system-ui, sans-serif;
+      color: #1c1917;
+      background: #fafaf9;
+    }
+    main { max-width: 42rem; margin: 0 auto; padding: 2.5rem 1.25rem 4rem; }
+    h1 { font-size: 1.55rem; line-height: 1.25; font-weight: 650; margin: 0 0 0.5rem; }
+    h2 { font-size: 1.05rem; margin: 2rem 0 0.5rem; }
+    p, li { margin: 0.4rem 0; }
+    a { color: #1d4ed8; }
+    .lede { color: #44403c; }
+    .note {
+      background: #fff;
+      border: 1px solid #e7e5e4;
+      border-radius: 8px;
+      padding: 0.8rem 1rem;
+      margin: 1rem 0;
+    }
+    table { width: 100%; border-collapse: collapse; font-size: 0.92rem; background: #fff; }
+    th, td { text-align: left; vertical-align: top; border-bottom: 1px solid #e7e5e4; padding: 0.45rem 0.4rem; }
+    th { font-size: 0.75rem; letter-spacing: 0.02em; text-transform: uppercase; color: #57534e; }
+    code { font-size: 0.88em; background: #f5f5f4; padding: 0.05em 0.3em; border-radius: 4px; }
+    footer { margin-top: 2.5rem; color: #57534e; font-size: 0.9rem; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Orakuru bonding-curve analytics</h1>
+  <p class="lede">Proof notes for an on-chain data analyst application. This page only restates what is in the public repo and what <code>test_pipeline.py</code> prints on its synthetic fixture. It is not a live Orakuru dashboard.</p>
+
+  <p>Repo: <a href="https://github.com/itw-code/orakuru-bonding-curve-analytics">itw-code/orakuru-bonding-curve-analytics</a> (public, branch <code>main</code>, commit <code>4dcd3f1</code>).</p>
+
+  <h2>What the analysis is</h2>
+  <p>A dbt-style pipeline (staging views, intermediate state, Kimball marts) plus three Dune SQL files. It models three things for a bonding-curve launchpad:</p>
+  <ul>
+    <li><strong>Curve state and graduation.</strong> Virtual reserves, spot price, and fill percent capped at 100 when collected base reaches the graduation threshold. Status becomes <code>GRADUATED</code> at that cap. See <a href="https://github.com/itw-code/orakuru-bonding-curve-analytics/blob/main/models/intermediate/int_bonding_curve_state.sql">int_bonding_curve_state.sql</a> and <a href="https://github.com/itw-code/orakuru-bonding-curve-analytics/blob/main/dune_queries/01_bonding_curve_realtime_monitor.sql">01_bonding_curve_realtime_monitor.sql</a>.</li>
+    <li><strong>Sniper clustering.</strong> A wallet is tagged <code>SNIPER</code> when its first trade is within 2 blocks of curve creation. See <a href="https://github.com/itw-code/orakuru-bonding-curve-analytics/blob/main/models/intermediate/int_wallet_clustering.sql">int_wallet_clustering.sql</a> and <a href="https://github.com/itw-code/orakuru-bonding-curve-analytics/blob/main/dune_queries/02_wallet_clustering_and_snipers.sql">02_wallet_clustering_and_snipers.sql</a>.</li>
+    <li><strong>Token velocity.</strong> Daily <code>V = base volume / implied market cap</code>, plus turnover (tokens traded / supply). Tiers in <a href="https://github.com/itw-code/orakuru-bonding-curve-analytics/blob/main/models/intermediate/int_token_velocity.sql">int_token_velocity.sql</a>: <code>HYPER_VELOCITY</code> at V ≥ 2, <code>HEALTHY_CIRCULATION</code> at V ≥ 0.5, <code>MODERATE_VELOCITY</code> at V ≥ 0.1, otherwise <code>STAGNANT_LIQUIDITY</code>. Query: <a href="https://github.com/itw-code/orakuru-bonding-curve-analytics/blob/main/dune_queries/03_token_velocity_and_health.sql">03_token_velocity_and_health.sql</a>.</li>
+  </ul>
+
+  <h2>What was actually checked</h2>
+  <p>No Dune extract, notebook, or saved query result is committed. The only executed result in the repo is <a href="https://github.com/itw-code/orakuru-bonding-curve-analytics/blob/main/test_pipeline.py">test_pipeline.py</a>. It loads a small synthetic book (two curves, nine swaps) into in-memory DuckDB and asserts five invariants. Running that file printed the rows below, and all five assertions passed.</p>
+
+  <table>
+    <thead>
+      <tr><th>Check</th><th>Printed result</th><th>How to read it</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Graduation</td>
+        <td><code>0xnova</code> fill 100.0, status <code>GRADUATED</code></td>
+        <td>On this fixture the curve is treated as fully filled and graduated. This is not a count of real Orakuru launches.</td>
+      </tr>
+      <tr>
+        <td>Snipers</td>
+        <td><code>0xsniper_1</code> and <code>0xsniper_2</code>: <code>is_sniper = 1</code>, cohort <code>SNIPER</code></td>
+        <td>Both addresses buy in the first two blocks after creation, so the rule flags them. Later wallets in the same fixture are not in this printout.</td>
+      </tr>
+      <tr>
+        <td>Wallet segment</td>
+        <td><code>0xwhale_1</code> → <code>WHALE</code></td>
+        <td>Segment label from <code>dim_wallets</code> for that fixture address. Not a measured share of real supply.</td>
+      </tr>
+      <tr>
+        <td>Velocity</td>
+        <td><code>0xphantom</code>: V 0.3385, turnover 46.0, <code>MODERATE_VELOCITY</code><br><code>0xnova</code>: V 0.39, turnover 79.0, <code>MODERATE_VELOCITY</code></td>
+        <td>Both sit between 0.1 and 0.5, so the model’s moderate tier, not the “healthy” band (0.5–2) described in the README.</td>
+      </tr>
+      <tr>
+        <td>Mart grain</td>
+        <td>7 distinct traders in the raw swaps, 7 rows in <code>dim_wallets</code></td>
+        <td>The wallet dimension does not fan out on this fixture.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="note">
+    <p>Reproduce: <code>python test_pipeline.py</code> (needs DuckDB). The script’s own header says the trades are synthetic.</p>
+  </div>
+
+  <h2>What is not on this page</h2>
+  <ul>
+    <li><a href="https://github.com/itw-code/orakuru-bonding-curve-analytics/blob/main/dashboards/executive_dashboard_spec.md">dashboards/executive_dashboard_spec.md</a> sketches a header with example figures (42 active curves, 18.4 BNB fees, 14.2% graduation, 1,840 BNB volume, 1,420 traders, 38 minutes to graduate). Those are layout placeholders, not a measured extract, so they are omitted.</li>
+    <li><a href="https://github.com/itw-code/orakuru-bonding-curve-analytics/blob/main/dashboards/evidence_preview.md">dashboards/evidence_preview.md</a> is an Evidence.dev page sketch. It has queries, not saved results.</li>
+    <li>A comment in the test file calls the second curve “~45% fill”. The suite does not print that fill, so it is not shown as a result.</li>
+  </ul>
+
+  <footer>
+    <p>Ihsan Tri Wanda · <a href="https://github.com/itw-code">@itw-code</a> · source README and models on <code>main</code> at <code>4dcd3f1044aa756d7fd0e8a5f9d9594bf637e674</code>.</p>
+  </footer>
+</main>
+</body>
+</html>
