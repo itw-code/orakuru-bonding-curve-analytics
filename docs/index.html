@@ -1,56 +1,156 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Orakuru bonding-curve analytics — proof notes</title>
-  <meta name="description" content="Short public notes for the orakuru-bonding-curve-analytics proof repo. Figures are from the committed synthetic validation suite, not live chain stats.">
-  <style>
-    :root { color-scheme: light; }
-    body {
-      margin: 0;
-      font: 16px/1.5 "Segoe UI", system-ui, sans-serif;
-      color: #1c1917;
-      background: #fafaf9;
-    }
-    main { max-width: 42rem; margin: 0 auto; padding: 2.5rem 1.25rem 4rem; }
-    h1 { font-size: 1.55rem; line-height: 1.25; font-weight: 650; margin: 0 0 0.5rem; }
-    h2 { font-size: 1.05rem; margin: 2rem 0 0.5rem; }
-    p, li { margin: 0.4rem 0; }
-    a { color: #1d4ed8; }
-    .lede { color: #44403c; }
-    .note {
-      background: #fff;
-      border: 1px solid #e7e5e4;
-      border-radius: 8px;
-      padding: 0.8rem 1rem;
-      margin: 1rem 0;
-    }
-    table { width: 100%; border-collapse: collapse; font-size: 0.92rem; background: #fff; }
-    th, td { text-align: left; vertical-align: top; border-bottom: 1px solid #e7e5e4; padding: 0.45rem 0.4rem; }
-    th { font-size: 0.75rem; letter-spacing: 0.02em; text-transform: uppercase; color: #57534e; }
-    code { font-size: 0.88em; background: #f5f5f4; padding: 0.05em 0.3em; border-radius: 4px; }
-    footer { margin-top: 2.5rem; color: #57534e; font-size: 0.9rem; }
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Orakuru bonding-curve analytics — proof notes</title>
+<meta name="description" content="Short public notes for the orakuru-bonding-curve-analytics proof repo. Figures are from the committed synthetic validation suite, not live chain stats.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,300..600;1,6..72,300..500&family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F7F4EE; --paper-2:#EFEBE1; --panel:#FCFAF6;
+    --ink:#22262B; --ink-soft:#4A5259; --muted:#5B636B;
+    --rule:#DDD7CB; --rule-2:#C9C1B2;
+    --teal:#1F7A80; --plum:#8C4A6B; --quote:#F6EFF3;
+    --ok:#3F6B52; --ok-bg:#E6EDE6; --ok-line:#CBDACB;
+    --open:#7A5F28; --open-bg:#F2EBDA; --open-line:#E3D6B6;
+    --unproven:#5F646A; --unproven-bg:#EBE9E4; --unproven-line:#D9D6D0;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth;scroll-padding-top:1.2rem}
+  :target{scroll-margin-top:1.2rem}
+  @media (prefers-reduced-motion: reduce){ html{scroll-behavior:auto} }
+  .skip{position:absolute;left:-9999px;top:8px;z-index:20;background:var(--paper);
+        color:var(--teal);padding:8px 14px;border:1px solid var(--teal);border-radius:3px;
+        font-family:"IBM Plex Mono",monospace;font-size:.78rem;text-decoration:none;border-bottom:none}
+  .skip:focus,.skip:focus-visible{left:12px}
+  body{margin:0;background:var(--paper);color:var(--ink);
+       font:16.5px/1.7 "Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+       -webkit-font-smoothing:antialiased;}
+  .wrap{max-width:720px;margin:0 auto;padding:52px 24px 90px}
+  .back{display:inline-block;margin-bottom:2.2rem;font-size:.92rem;color:var(--muted);
+        text-decoration:none;border-bottom:none}
+  .back:hover{color:var(--teal)}
+  .meta{font-family:"IBM Plex Mono",monospace;font-size:.72rem;letter-spacing:.1em;
+        text-transform:uppercase;color:var(--muted);margin:0 0 .5rem}
+  h1{font-family:"Newsreader",Georgia,serif;font-weight:400;font-size:2.1rem;line-height:1.22;
+     margin:0 0 .5rem;letter-spacing:-.02em}
+  .lede{font-family:"Newsreader",Georgia,serif;font-size:1.14rem;line-height:1.6;
+        color:var(--ink-soft);margin:0 0 1.1rem}
+  .caveat{border-left:2px solid var(--plum);background:var(--quote);padding:14px 18px;
+          margin:0 0 1.8rem;border-radius:0 4px 4px 0;font-size:.97rem}
+  .caveat p{margin:0}
+  .caveat b{color:var(--plum)}
+  .chips{display:flex;flex-wrap:wrap;gap:5px;margin:0 0 1.6rem}
+  .chip{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:.72rem;letter-spacing:.01em;
+        padding:3px 8px;border-radius:3px;border:1px solid var(--rule);background:var(--paper-2);
+        color:var(--ink-soft);white-space:nowrap}
+  .chip.ok{color:var(--ok);background:var(--ok-bg);border-color:var(--ok-line)}
+  .chip.unproven{color:var(--unproven);background:var(--unproven-bg);border-color:var(--unproven-line)}
+  h2{font-family:"Newsreader",Georgia,serif;font-weight:500;font-size:1.5rem;
+     margin:2.9rem 0 .9rem;padding-bottom:.45rem;border-bottom:1px solid var(--rule)}
+  h3{font-family:"Newsreader",Georgia,serif;font-weight:500;font-size:1.16rem;
+     margin:1.6rem 0 .45rem;color:var(--teal)}
+  p{margin:0 0 1.05rem}
+  a{color:var(--teal);text-decoration:none;border-bottom:1px solid #B9D3D4}
+  a:hover{border-bottom-color:var(--teal)}
+  a:focus-visible{outline:2px solid var(--teal);outline-offset:2px;border-radius:2px}
+  code{font-family:"IBM Plex Mono",monospace;font-size:.87em;background:var(--paper-2);
+       border:1px solid var(--rule);border-radius:3px;padding:.06rem .32rem}
+  ul,ol{padding-left:1.3rem;margin:0 0 1.05rem}
+  li{margin:.4rem 0}
+  .plate{border:1px solid var(--rule);border-radius:4px;background:var(--panel);
+         padding:18px 20px;margin:0 0 1.2rem}
+  .plate p:last-child{margin-bottom:0}
+  .layers-stack{list-style:none;padding:0;margin:0 0 1.2rem}
+  .layers-stack li{border:1px solid var(--rule);border-radius:4px;background:var(--panel);
+                   padding:14px 18px;margin:0 0 12px;border-left:3px solid var(--teal)}
+  .layers-stack li:last-child{margin-bottom:0}
+  .layers-stack h3{margin:0 0 .35rem;font-size:1.05rem;color:var(--ink)}
+  .layers-stack p{margin:0;font-size:.97rem;color:var(--ink-soft)}
+  .table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:1.2rem 0}
+  .table-scroll table{margin:0;min-width:36rem}
+  table{width:100%;border-collapse:collapse;margin:1.2rem 0;font-size:.93rem}
+  th,td{text-align:left;padding:.6rem .7rem;border-bottom:1px solid var(--rule);vertical-align:top}
+  th{font-family:"IBM Plex Mono",monospace;font-size:.72rem;letter-spacing:.09em;
+     text-transform:uppercase;color:var(--muted);font-weight:500;border-bottom:1px solid var(--rule-2)}
+  .boundary{font-family:"IBM Plex Mono",monospace;font-size:.78rem;color:var(--unproven);
+            border-top:1px dotted var(--rule-2);padding-top:.6rem;margin-top:.9rem;line-height:1.6}
+  .omit{list-style:none;padding:0;margin:0 0 1.05rem}
+  .omit li{border:1px solid var(--rule);border-radius:4px;background:var(--panel);
+           padding:14px 18px;margin:0 0 10px;border-left:3px solid var(--rule-2)}
+  .omit li:last-child{margin-bottom:0}
+  .omit p{margin:0;font-size:.97rem;color:var(--ink-soft)}
+  .omit .label{font-family:"IBM Plex Mono",monospace;font-size:.72rem;letter-spacing:.08em;
+               text-transform:uppercase;color:var(--muted);margin:0 0 .35rem}
+  .foot{margin-top:3.4rem;padding-top:1.6rem;border-top:1px solid var(--rule)}
+  .contact{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 1.2rem}
+  .contact a{font-family:"IBM Plex Mono",monospace;font-size:.78rem;border:1px solid var(--rule);
+            background:var(--panel);padding:8px 13px;border-radius:3px;color:var(--ink-soft);
+            border-bottom-width:1px}
+  .contact a:hover{border-color:var(--teal);color:var(--teal)}
+  .fine{font-size:.78rem;color:var(--muted);font-family:"IBM Plex Mono",monospace;margin:0;line-height:1.6}
+  .totop{position:fixed;right:18px;bottom:18px;z-index:15;
+         font-family:"IBM Plex Mono",monospace;font-size:.72rem;letter-spacing:.1em;
+         text-transform:uppercase;color:var(--muted);background:var(--paper);
+         border:1px solid var(--rule);border-radius:3px;padding:10px 12px;
+         text-decoration:none;border-bottom:none;min-height:44px;min-width:44px;
+         display:inline-flex;align-items:center;justify-content:center}
+  .totop:hover{color:var(--teal);border-color:var(--teal)}
+  @media print{.totop{display:none}}
+  @media (max-width:600px){
+    body{font-size:16px} h1{font-size:1.6rem} table{font-size:.88rem}
+    th,td{padding:.5rem .4rem}
+    .contact a{padding:12px 16px;min-height:44px;display:inline-flex;align-items:center}
+  }
+</style>
 </head>
 <body>
-<main>
+<a class="skip" href="#content">Skip to content</a>
+<div class="wrap" id="content">
+
+  <a class="back" href="https://ihsanwanda.my.id/">&larr; Ihsan Wanda</a>
+
+  <p class="meta">Proof notes · synthetic fixture</p>
   <h1>Orakuru bonding-curve analytics</h1>
   <p class="lede">Proof notes for an on-chain data analyst application. This page only restates what is in the public repo and what <code>test_pipeline.py</code> prints on its synthetic fixture. It is not a live Orakuru dashboard.</p>
+
+  <div class="caveat">
+    <p><b>Honesty caveat.</b> Every figure below comes from the synthetic book loaded by <code>test_pipeline.py</code> — two curves, nine swaps, in-memory DuckDB. These are not live chain stats, not on-chain production metrics, and not a measured Orakuru extract.</p>
+  </div>
+
+  <div class="chips" aria-label="Proof status">
+    <span class="chip ok">5 / 5 assertions passed</span>
+    <span class="chip unproven">synthetic fixture only</span>
+    <span class="chip unproven">no Dune extract committed</span>
+  </div>
 
   <p>Repo: <a href="https://github.com/itw-code/orakuru-bonding-curve-analytics">itw-code/orakuru-bonding-curve-analytics</a> (public, branch <code>main</code>, commit <code>4dcd3f1</code>).</p>
 
   <h2>What the analysis is</h2>
   <p>A dbt-style pipeline (staging views, intermediate state, Kimball marts) plus three Dune SQL files. It models three things for a bonding-curve launchpad:</p>
-  <ul>
-    <li><strong>Curve state and graduation.</strong> Virtual reserves, spot price, and fill percent capped at 100 when collected base reaches the graduation threshold. Status becomes <code>GRADUATED</code> at that cap. See <a href="https://github.com/itw-code/orakuru-bonding-curve-analytics/blob/main/models/intermediate/int_bonding_curve_state.sql">int_bonding_curve_state.sql</a> and <a href="https://github.com/itw-code/orakuru-bonding-curve-analytics/blob/main/dune_queries/01_bonding_curve_realtime_monitor.sql">01_bonding_curve_realtime_monitor.sql</a>.</li>
-    <li><strong>Sniper clustering.</strong> A wallet is tagged <code>SNIPER</code> when its first trade is within 2 blocks of curve creation. See <a href="https://github.com/itw-code/orakuru-bonding-curve-analytics/blob/main/models/intermediate/int_wallet_clustering.sql">int_wallet_clustering.sql</a> and <a href="https://github.com/itw-code/orakuru-bonding-curve-analytics/blob/main/dune_queries/02_wallet_clustering_and_snipers.sql">02_wallet_clustering_and_snipers.sql</a>.</li>
-    <li><strong>Token velocity.</strong> Daily <code>V = base volume / implied market cap</code>, plus turnover (tokens traded / supply). Tiers in <a href="https://github.com/itw-code/orakuru-bonding-curve-analytics/blob/main/models/intermediate/int_token_velocity.sql">int_token_velocity.sql</a>: <code>HYPER_VELOCITY</code> at V ≥ 2, <code>HEALTHY_CIRCULATION</code> at V ≥ 0.5, <code>MODERATE_VELOCITY</code> at V ≥ 0.1, otherwise <code>STAGNANT_LIQUIDITY</code>. Query: <a href="https://github.com/itw-code/orakuru-bonding-curve-analytics/blob/main/dune_queries/03_token_velocity_and_health.sql">03_token_velocity_and_health.sql</a>.</li>
+
+  <ul class="layers-stack">
+    <li>
+      <h3>Curve state and graduation</h3>
+      <p>Virtual reserves, spot price, and fill percent capped at 100 when collected base reaches the graduation threshold. Status becomes <code>GRADUATED</code> at that cap. See <a href="https://github.com/itw-code/orakuru-bonding-curve-analytics/blob/main/models/intermediate/int_bonding_curve_state.sql">int_bonding_curve_state.sql</a> and <a href="https://github.com/itw-code/orakuru-bonding-curve-analytics/blob/main/dune_queries/01_bonding_curve_realtime_monitor.sql">01_bonding_curve_realtime_monitor.sql</a>.</p>
+    </li>
+    <li>
+      <h3>Sniper clustering</h3>
+      <p>A wallet is tagged <code>SNIPER</code> when its first trade is within 2 blocks of curve creation. See <a href="https://github.com/itw-code/orakuru-bonding-curve-analytics/blob/main/models/intermediate/int_wallet_clustering.sql">int_wallet_clustering.sql</a> and <a href="https://github.com/itw-code/orakuru-bonding-curve-analytics/blob/main/dune_queries/02_wallet_clustering_and_snipers.sql">02_wallet_clustering_and_snipers.sql</a>.</p>
+    </li>
+    <li>
+      <h3>Token velocity</h3>
+      <p>Daily <code>V = base volume / implied market cap</code>, plus turnover (tokens traded / supply). Tiers in <a href="https://github.com/itw-code/orakuru-bonding-curve-analytics/blob/main/models/intermediate/int_token_velocity.sql">int_token_velocity.sql</a>: <code>HYPER_VELOCITY</code> at V ≥ 2, <code>HEALTHY_CIRCULATION</code> at V ≥ 0.5, <code>MODERATE_VELOCITY</code> at V ≥ 0.1, otherwise <code>STAGNANT_LIQUIDITY</code>. Query: <a href="https://github.com/itw-code/orakuru-bonding-curve-analytics/blob/main/dune_queries/03_token_velocity_and_health.sql">03_token_velocity_and_health.sql</a>.</p>
+    </li>
   </ul>
 
   <h2>What was actually checked</h2>
   <p>No Dune extract, notebook, or saved query result is committed. The only executed result in the repo is <a href="https://github.com/itw-code/orakuru-bonding-curve-analytics/blob/main/test_pipeline.py">test_pipeline.py</a>. It loads a small synthetic book (two curves, nine swaps) into in-memory DuckDB and asserts five invariants. Running that file printed the rows below, and all five assertions passed.</p>
 
+  <div class="table-scroll">
   <table>
     <thead>
       <tr><th>Check</th><th>Printed result</th><th>How to read it</th></tr>
@@ -83,21 +183,38 @@
       </tr>
     </tbody>
   </table>
+  </div>
 
-  <div class="note">
+  <div class="plate">
     <p>Reproduce: <code>python test_pipeline.py</code> (needs DuckDB). The script’s own header says the trades are synthetic.</p>
   </div>
 
   <h2>What is not on this page</h2>
-  <ul>
-    <li><a href="https://github.com/itw-code/orakuru-bonding-curve-analytics/blob/main/dashboards/executive_dashboard_spec.md">dashboards/executive_dashboard_spec.md</a> sketches a header with example figures (42 active curves, 18.4 BNB fees, 14.2% graduation, 1,840 BNB volume, 1,420 traders, 38 minutes to graduate). Those are layout placeholders, not a measured extract, so they are omitted.</li>
-    <li><a href="https://github.com/itw-code/orakuru-bonding-curve-analytics/blob/main/dashboards/evidence_preview.md">dashboards/evidence_preview.md</a> is an Evidence.dev page sketch. It has queries, not saved results.</li>
-    <li>A comment in the test file calls the second curve “~45% fill”. The suite does not print that fill, so it is not shown as a result.</li>
+  <ul class="omit">
+    <li>
+      <p class="label">Dashboard placeholders</p>
+      <p><a href="https://github.com/itw-code/orakuru-bonding-curve-analytics/blob/main/dashboards/executive_dashboard_spec.md">dashboards/executive_dashboard_spec.md</a> sketches a header with example figures (42 active curves, 18.4 BNB fees, 14.2% graduation, 1,840 BNB volume, 1,420 traders, 38 minutes to graduate). Those are layout placeholders, not a measured extract, so they are omitted.</p>
+    </li>
+    <li>
+      <p class="label">Evidence sketch</p>
+      <p><a href="https://github.com/itw-code/orakuru-bonding-curve-analytics/blob/main/dashboards/evidence_preview.md">dashboards/evidence_preview.md</a> is an Evidence.dev page sketch. It has queries, not saved results.</p>
+    </li>
+    <li>
+      <p class="label">Unprinted fill</p>
+      <p>A comment in the test file calls the second curve “~45% fill”. The suite does not print that fill, so it is not shown as a result.</p>
+    </li>
   </ul>
 
-  <footer>
-    <p>Ihsan Tri Wanda · <a href="https://github.com/itw-code">@itw-code</a> · source README and models on <code>main</code> at <code>4dcd3f1044aa756d7fd0e8a5f9d9594bf637e674</code>.</p>
+  <footer class="foot">
+    <div class="contact">
+      <a href="https://ihsanwanda.my.id/">Portfolio</a>
+      <a href="https://github.com/itw-code/orakuru-bonding-curve-analytics">Repository</a>
+      <a href="https://github.com/itw-code">@itw-code</a>
+    </div>
+    <p class="fine">Ihsan Tri Wanda · source README and models on <code>main</code> at <code>4dcd3f1044aa756d7fd0e8a5f9d9594bf637e674</code>.</p>
+    <p class="boundary">Figures on this page are drawn from <code>test_pipeline.py</code> synthetic fixtures only. No live Orakuru chain extract is claimed here.</p>
   </footer>
-</main>
+</div>
+<a class="totop" href="#content" aria-label="Back to top">Top</a>
 </body>
 </html>
